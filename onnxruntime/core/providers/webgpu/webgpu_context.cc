@@ -91,7 +91,7 @@ void WebGpuContext::Initialize() {
     ORT_ENFORCE(device_.GetLimits(&limits));
 
     // create buffer manager
-    buffer_mgr_ = std::make_unique<webgpu::BufferManager>(device_);
+    buffer_mgr_ = BufferManagerFactory::Create(*this, BufferCacheMode::None);
   });
 }
 
@@ -103,12 +103,15 @@ Status WebGpuContext::Wait(wgpu::Future f) const {
   return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Failed to wait for the operation:", uint32_t(status));
 }
 
+std::unordered_map<int32_t, std::unique_ptr<WebGpuContext>> WebGpuContextFactory::contexts_;
+std::mutex WebGpuContextFactory::mutex_;
+
 WebGpuContext& WebGpuContextFactory::GetOrCreateContext(int32_t context_id) {
   std::lock_guard<std::mutex> lock(mutex_);
 
   auto it = contexts_.find(context_id);
   if (it == contexts_.end()) {
-    auto context = std::make_unique<WebGpuContext>();
+    auto context = std::unique_ptr<WebGpuContext>(new WebGpuContext());
     it = contexts_.emplace(context_id, std::move(context)).first;
   }
   return *it->second;

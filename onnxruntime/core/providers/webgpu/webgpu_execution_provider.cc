@@ -722,7 +722,7 @@ WebGpuExecutionProvider::WebGpuExecutionProvider(const WebGpuContext& context,
                                                  const WebGpuExecutionProviderInfo& info,
                                                  const SessionOptions* session_options)
     : IExecutionProvider{kWebGpuExecutionProvider, OrtDevice(OrtDevice::GPU, OrtDevice::MemType::DEFAULT, 0)},
-      context_(context),
+      context_{context},
       preferred_data_layout_{info.data_layout} {
   if (session_options) {
     enable_graph_capture_ = session_options->config_options.GetConfigOrDefault("enableGraphCapture", "false") == "true";

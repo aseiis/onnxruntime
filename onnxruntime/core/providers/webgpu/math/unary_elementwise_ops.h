@@ -26,6 +26,5 @@ class Abs final : public UnaryElementwise {
   // Status ComputeInternal(OpKernelContext* context) const override;
 };
 
-
 }  // namespace webgpu
 }  // namespace onnxruntime

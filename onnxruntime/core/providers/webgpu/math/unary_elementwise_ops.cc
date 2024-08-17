@@ -19,21 +19,20 @@ Status UnaryElementwise::ComputeInternal(OpKernelContext* context) const {
   return Status(common::ONNXRUNTIME, common::FAIL);
 }
 
-#define WEBGPU_ELEMENTWISE_KERNEL(OP_TYPE, VERSION, KERNEL_CLASS, TYPE)  \
-  ONNX_OPERATOR_KERNEL_EX(                                             \
-      OP_TYPE, kOnnxDomain, VERSION, kWebGpuExecutionProvider,         \
-      KernelDefBuilder().TypeConstraint("T", TYPE),                    \
+#define WEBGPU_ELEMENTWISE_KERNEL(OP_TYPE, VERSION, KERNEL_CLASS, TYPE) \
+  ONNX_OPERATOR_KERNEL_EX(                                              \
+      OP_TYPE, kOnnxDomain, VERSION, kWebGpuExecutionProvider,          \
+      KernelDefBuilder().TypeConstraint("T", TYPE),                     \
       KERNEL_CLASS);
 
 #define WEBGPU_ELEMENTWISE_VERSIONED_KERNEL(OP_TYPE, VERSION_FROM, VERSION_TO, KERNEL_CLASS, TYPE) \
-  ONNX_OPERATOR_VERSIONED_KERNEL_EX(                                                             \
-      OP_TYPE, kOnnxDomain, VERSION_FROM, VERSION_TO, kWebGpuExecutionProvider,                  \
-      KernelDefBuilder().TypeConstraint("T", TYPE),                                              \
+  ONNX_OPERATOR_VERSIONED_KERNEL_EX(                                                               \
+      OP_TYPE, kOnnxDomain, VERSION_FROM, VERSION_TO, kWebGpuExecutionProvider,                    \
+      KernelDefBuilder().TypeConstraint("T", TYPE),                                                \
       KERNEL_CLASS);
 
 WEBGPU_ELEMENTWISE_VERSIONED_KERNEL(Abs, 6, 12, Abs, WebGpuSupportedFloatTypes())
 WEBGPU_ELEMENTWISE_KERNEL(Abs, 13, Abs, WebGpuSupportedFloatTypes())
-
 
 }  // namespace webgpu
 }  // namespace onnxruntime

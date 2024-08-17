@@ -36,5 +36,5 @@ class WebGpuKernel : public OpKernel {
   virtual Status ComputeInternal(OpKernelContext* p_op_kernel_context) const = 0;
 };
 
-}  // namespace cuda
+}  // namespace webgpu
 }  // namespace onnxruntime

@@ -20,7 +20,7 @@ void* GpuBufferAllocator::Alloc(size_t size) {
   auto buffer = context_.BufferManager().Create(size);
 
   stats_.num_allocs++;
-  return buffer.Get();
+  return buffer;
 }
 
 void GpuBufferAllocator::Free(void* p) {

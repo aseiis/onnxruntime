@@ -12,8 +12,8 @@ namespace onnxruntime {
 
 struct WebGpuProviderFactory : IExecutionProviderFactory {
   WebGpuProviderFactory(const webgpu::WebGpuContext& context, const ProviderOptions& provider_options, const SessionOptions* session_options)
-      : context_{context},
-        info_{provider_options},
+      : info_{provider_options},
+        context_{context},
         session_options_(session_options) {
   }
 
@@ -23,8 +23,8 @@ struct WebGpuProviderFactory : IExecutionProviderFactory {
 
  private:
   WebGpuExecutionProviderInfo info_;
-  const SessionOptions* session_options_;
   const webgpu::WebGpuContext& context_;
+  const SessionOptions* session_options_;
 };
 
 std::shared_ptr<IExecutionProviderFactory> WebGpuProviderFactoryCreator::Create(

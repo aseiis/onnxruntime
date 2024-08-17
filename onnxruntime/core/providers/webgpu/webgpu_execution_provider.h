@@ -8,17 +8,16 @@
 #include "core/framework/session_options.h"
 #include "core/graph/constants.h"
 #include "core/providers/providers.h"
-#include "core/providers/webgpu/webgpu_context.h"
 
 struct pthreadpool;
 namespace onnxruntime {
-
 namespace webgpu {
 
 // forward declaration for this EP's namespace.
 template <typename T>
 KernelCreateInfo BuildKernelCreateInfo();
 
+class WebGpuContext;
 }  // namespace webgpu
 
 struct WebGpuExecutionProviderInfo {
@@ -40,7 +39,7 @@ struct WebGpuExecutionProviderInfo {
 
 class WebGpuExecutionProvider : public IExecutionProvider {
  public:
-  WebGpuExecutionProvider(const WebGpuContext& context, const WebGpuExecutionProviderInfo& info, const SessionOptions* session_options);
+  WebGpuExecutionProvider(const webgpu::WebGpuContext& context, const WebGpuExecutionProviderInfo& info, const SessionOptions* session_options);
   ~WebGpuExecutionProvider() override;
 
   std::vector<std::unique_ptr<ComputeCapability>> GetCapability(
@@ -70,7 +69,7 @@ class WebGpuExecutionProvider : public IExecutionProvider {
  private:
   bool IsGraphCaptureAllowed() const;
   void IncrementRegularRunCountBeforeGraphCapture();
-  const WebGpuContext& context_;
+  const webgpu::WebGpuContext& context_;
   DataLayout preferred_data_layout_;
   bool enable_graph_capture_ = false;
   bool is_graph_captured_ = false;

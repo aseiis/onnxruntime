@@ -16,16 +16,65 @@
 
 namespace onnxruntime {
 namespace webgpu {
+class WebGpuContext;
+
+class WebGpuContextFactory {
+ public:
+  static WebGpuContext& GetOrCreateContext(int32_t context_id = 0);
+
+ private:
+  WebGpuContextFactory() {}
+
+  static std::unordered_map<int32_t, std::unique_ptr<WebGpuContext>> contexts_;
+  static std::mutex mutex_;
+};
 
 // Class WebGpuContext includes all necessary resources for the context.
 class WebGpuContext final {
  public:
   void Initialize();
 
+  // non copyable
+  WebGpuContext(const WebGpuContext&) = delete;
+  WebGpuContext& operator=(const WebGpuContext&) = delete;
+
+  // non movable
+  WebGpuContext(WebGpuContext&&) = delete;
+  WebGpuContext& operator=(WebGpuContext&&) = delete;
+
   Status Wait(wgpu::Future f) const;
 
   const wgpu::Adapter& Adapter() const { return adapter_; }
   const wgpu::Device& Device() const { return device_; }
+
+  const wgpu::CommandEncoder& GetCommandEncoder() const {
+    if (!current_command_encoder_) {
+      current_command_encoder_ = device_.CreateCommandEncoder();
+    }
+    return current_command_encoder_;
+  }
+
+  void EndComputePass() const {
+    if (current_compute_pass_encoder_) {
+      current_compute_pass_encoder_.End();
+      current_compute_pass_encoder_ = nullptr;
+    }
+  }
+
+  void Flush() const {
+    if (!current_command_encoder_) {
+      return;
+    }
+
+    EndComputePass();
+
+    // TODO: add support for GPU Query
+
+    auto command_buffer = current_command_encoder_.Finish();
+    Device().GetQueue().Submit(1, &command_buffer);
+    BufferManager().RefreshPendingBuffers();
+    current_command_encoder_ = nullptr;
+  }
 
   const IBufferManager& BufferManager() const { return *buffer_mgr_; }
 
@@ -39,19 +88,10 @@ class WebGpuContext final {
   wgpu::Device device_;
 
   std::unique_ptr<IBufferManager> buffer_mgr_;
+  mutable wgpu::CommandEncoder current_command_encoder_;
+  mutable wgpu::ComputePassEncoder current_compute_pass_encoder_;
 
   friend class WebGpuContextFactory;
-};
-
-class WebGpuContextFactory {
- public:
-  static WebGpuContext& GetOrCreateContext(int32_t context_id = 0);
-
- private:
-  WebGpuContextFactory() {}
-
-  static std::unordered_map<int32_t, std::unique_ptr<WebGpuContext>> contexts_;
-  static std::mutex mutex_;
 };
 
 }  // namespace webgpu

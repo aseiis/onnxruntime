@@ -15,6 +15,8 @@
 namespace onnxruntime {
 namespace webgpu {
 
+class WebGpuContext;
+
 enum class BufferCacheMode {
   None,
   Simple,
@@ -32,10 +34,10 @@ class IBufferCacheManager {
   virtual WGPUBuffer TryAcquireCachedBuffer(size_t buffer_size, wgpu::BufferUsage usage) = 0;
 
   // register a newly created buffer
-  virtual void RegisterBuffer(WGPUBuffer buffer, size_t request_size, size_t buffer_size, wgpu::BufferUsage usage) = 0;
+  virtual void RegisterBuffer(WGPUBuffer buffer, size_t request_size) = 0;
 
   // release a buffer
-  virtual void ReleaseBuffer(WGPUBuffer buffer, size_t buffer_size, wgpu::BufferUsage usage) = 0;
+  virtual void ReleaseBuffer(WGPUBuffer buffer) = 0;
 
   // when a stream refresh is requested
   virtual void OnRefresh() = 0;
@@ -43,7 +45,7 @@ class IBufferCacheManager {
 
 class IBufferManager {
  protected:
-  IBufferManager(wgpu::Device device, std::unique_ptr<IBufferCacheManager> cache) : device_{device}, cache_{std::move(cache)} {}
+  IBufferManager(const WebGpuContext& context, std::unique_ptr<IBufferCacheManager> cache) : context_{context}, cache_{std::move(cache)} {}
 
  public:
   virtual ~IBufferManager() = default;
@@ -51,35 +53,22 @@ class IBufferManager {
   virtual void MemCpy(WGPUBuffer src, WGPUBuffer dst, size_t size) const = 0;
   virtual WGPUBuffer Create(size_t size, wgpu::BufferUsage usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst) const = 0;
   virtual void Release(WGPUBuffer buffer) const = 0;
-  virtual wgpu::Future Download(WGPUBuffer src, void* dst, size_t size) const = 0;
+  virtual void Download(WGPUBuffer src, void* dst, size_t size) const = 0;
   virtual void RefreshPendingBuffers() const = 0;
 
   // TODO: add statistics
 
  protected:
-  wgpu::Device device_;
+  const WebGpuContext& context_;
   std::unique_ptr<IBufferCacheManager> cache_;
 };
 
-class BufferManager : public IBufferManager {
+class BufferManagerFactory {
  public:
-  BufferManager(wgpu::Device device, BufferCacheMode cache_mode);
-
-  void Upload(void* src, WGPUBuffer dst, size_t size) const override;
-  void MemCpy(WGPUBuffer src, WGPUBuffer dst, size_t size) const override;
-  WGPUBuffer Create(size_t size, wgpu::BufferUsage usage) const override;
-  void Release(WGPUBuffer buffer) const override;
-  wgpu::Future Download(WGPUBuffer src, void* dst, size_t size) const override;
-  void RefreshPendingBuffers() const override;
+  static std::unique_ptr<IBufferManager> Create(const WebGpuContext& context, BufferCacheMode mode);
 
  private:
-  struct PendingBuffer {
-    wgpu::Buffer buffer;
-    void* data;
-    size_t size;
-  };
-
-  std::vector<PendingBuffer> pending_buffers_;
+  BufferManagerFactory() {}
 };
 
 }  // namespace webgpu

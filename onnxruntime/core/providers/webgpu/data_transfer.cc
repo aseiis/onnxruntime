@@ -37,8 +37,7 @@ common::Status DataTransfer::CopyTensor(const Tensor& src, Tensor& dst) const {
       }
     } else /* if (src_device.Type() == OrtDevice::GPU) */ {
       // copy from GPU to CPU
-      ORT_RETURN_IF_ERROR(context_.Wait(
-          context_.BufferManager().Download(static_cast<WGPUBuffer>(const_cast<void*>(src_data)), dst_data, bytes)));
+      context_.BufferManager().Download(static_cast<WGPUBuffer>(const_cast<void*>(src_data)), dst_data, bytes);
     }
   }
 

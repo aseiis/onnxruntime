@@ -9,6 +9,8 @@
 namespace onnxruntime {
 namespace webgpu {
 
+class WebGpuContext;
+
 class DataTransfer : public IDataTransfer {
  public:
   DataTransfer(const WebGpuContext& context) : context_{context} {};

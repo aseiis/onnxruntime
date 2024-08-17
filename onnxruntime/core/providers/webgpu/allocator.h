@@ -9,6 +9,8 @@
 namespace onnxruntime {
 namespace webgpu {
 
+class WebGpuContext;
+
 class GpuBufferAllocator : public IAllocator {
  public:
   GpuBufferAllocator(const WebGpuContext& context)
