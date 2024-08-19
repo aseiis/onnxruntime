@@ -36,7 +36,7 @@ class AttentionKernelOptions {
 
   int MinSeqLenForFlashAttentionPackedQkv() const { return min_seq_len_for_flash_attention_packed_qkv_; }
   int MinSeqLenForEfficientAttentionFp32() const { return min_seq_len_for_efficient_attention_fp32_; }
-
+  bool PreferBNSHForCudnn() const { return perfer_bnsh_for_cudnn_; }
  protected:
   void Print() const;
 
@@ -57,6 +57,8 @@ class AttentionKernelOptions {
   bool use_trt_causal_attention_{false};
 
   bool enable_kernel_debug_info_{false};
+
+  bool perfer_bnsh_for_cudnn_{false};
 
   int min_seq_len_for_flash_attention_packed_qkv_{0};
 

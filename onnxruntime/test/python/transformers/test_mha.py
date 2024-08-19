@@ -68,6 +68,18 @@ def get_bias_support(format: InputFormats):
     raise RuntimeError(f"Unknown format: {format}")
 
 
+def get_atten_bias_support():
+    atten_bias_options = [
+        # (has_attn_bias, broadcast_attn_bias_dim_0, broadcast_attn_bias_dim_1)
+        (False, False, False),
+        (True, False, False),  # [b, n, s_q, s_kv]
+        (True, True, False),  # [1, n, s_q, s_kv]
+        (True, False, True),  # [b, 1, s_q, s_kv]
+        (True, True, True),  # [1, 1, s_q, s_kv]
+    ]
+    return atten_bias_options
+
+
 def attention_reference(
     head_size: int,
     query: torch.Tensor,
@@ -202,6 +214,7 @@ def no_kv_cache_test_cases(provider: str, comprehensive: bool):
         AttentionMaskFormat.Mask_1D_Key_SeqLen,
         AttentionMaskFormat.Mask_2D_Key_PaddingMask,
     ]
+    atten_bias_options = get_atten_bias_support()
 
     device, dtype, formats = get_provider_support_info(provider, False)
     if comprehensive:
@@ -295,14 +308,7 @@ def kv_cache_test_cases(provider: str, comprehensive: bool):
         AttentionMaskFormat.Mask_2D_Key_PaddingMask,
     ]
 
-    atten_bias_options = [
-        # (has_attn_bias, broadcast_attn_bias_dim_0, broadcast_attn_bias_dim_1)
-        (False, False, False),
-        (True, False, False),  # [b, n, s_q, s_kv]
-        # (True, True, False), # [1, n, s_q, s_kv]
-        # (True, False, True), # [b, 1, s_q, s_kv]
-        # (True, True, True),  # [1, 1, s_q, s_kv]
-    ]
+    atten_bias_options = get_atten_bias_support()
 
     if comprehensive:
         sequence_lengths = [*sequence_lengths, 2048]  # Large sequence length is slow and need a lot of memory
@@ -773,7 +779,7 @@ def multi_thread_test_cases(provider: str, comprehensive: bool):
 
 
 # Off by default so that we do not run too many tests in CI pipeline.
-comprehensive_mode = False
+comprehensive_mode = True
 
 
 class TestMultiHeadAttention(unittest.TestCase):

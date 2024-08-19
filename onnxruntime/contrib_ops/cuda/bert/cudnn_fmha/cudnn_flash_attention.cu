@@ -23,10 +23,13 @@ bool is_supported(const cudaDeviceProp& /*dprops*/,
 }
 
 void run(
+    void* /*output*/,
     void* /*q*/,
     void* /*k*/,
     void* /*v*/,
-    void* /*output*/,
+    void* /*bias*/,
+    int* /*mask_sequence_lengths_q*/,
+    int* /*mask_sequence_lengths_kv*/,
     int /*batch_size*/,
     int /*num_heads_q*/,
     int /*num_heads_kv*/,
@@ -37,10 +40,8 @@ void run(
     float /*scale*/,
     bool /*is_causal*/,
     bool /*is_bf16*/,
-    void* /*bias*/,
-    gsl::span<const int64_t> /*bias_shape*/,
-    int* /*mask_sequence_lengths_q*/,
-    int* /*mask_sequence_lengths_kv*/,
+    bool /*broadcast_attn_bias_dim_0*/,
+    bool /*broadcast_attn_bias_dim_1*/,
     int /*sliding_window*/,
     AttentionQkvFormat /*qkv_format*/,
     cudnnHandle_t /*handle*/,
@@ -314,10 +315,13 @@ struct BytesHash {
 thread_local std::unordered_map<GraphParams, std::shared_ptr<fe::graph::Graph>, BytesHash<GraphParams> > mha_graph_cache;
 
 void run(
+    void* output,
     void* q,
     void* k,
     void* v,
-    void* output,
+    void* attn_bias,
+    int* mask_sequence_lengths_q,
+    int* mask_sequence_lengths_kv,
     int batch_size,
     int num_heads_q,
     int num_heads_kv,
@@ -327,24 +331,14 @@ void run(
     int sequence_length_kv,
     float scale,
     bool is_causal,
-    bool is_bf16,                         // True if bfloat16, otherwise float16
-    void* attn_bias,                      // (optional) additive bias before softmax.
-    gsl::span<const int64_t> bias_shape,  // Shape of attention_bias. Shall be [b or 1, h_q or 1, s_q, s_kv].
-    int* mask_sequence_lengths_q,         // (optional) sequence lengths of q for padding mask. Shape: [b]
-    int* mask_sequence_lengths_kv,        // (optional) sequence lengths of k or v for padding mask. Shape: [b]
+    bool is_bf16,
+    bool broadcast_attn_bias_dim_0,
+    bool broadcast_attn_bias_dim_1,
     int sliding_window,
     AttentionQkvFormat qkv_format,
     cudnnHandle_t handle,
     Stream* stream,
     AllocatorPtr allocator) {
-  if (attn_bias != nullptr) {
-    ORT_ENFORCE(bias_shape.size() == 4 &&
-                    (bias_shape[0] == batch_size || bias_shape[0] == 1) &&
-                    (bias_shape[1] == num_heads_q || bias_shape[1] == 1) &&
-                    bias_shape[2] == sequence_length_q &&
-                    bias_shape[3] == sequence_length_kv,
-                "attn_bias shape must be [batch_size or 1, num_heads_q or 1, sequence_length_q, sequence_length_kv].");
-  }
 
   GraphParams params;
   params.batch_size = batch_size;
@@ -360,8 +354,8 @@ void run(
   params.qkv_format = qkv_format;
   params.handle = handle;
   params.has_bias = attn_bias != nullptr;
-  params.broadcast_bias_dim_0 = bias_shape.size() > 0 && bias_shape[0] == 1;
-  params.broadcast_bias_dim_1 = bias_shape.size() > 1 && bias_shape[1] == 1;
+  params.broadcast_bias_dim_0 = broadcast_attn_bias_dim_0;
+  params.broadcast_bias_dim_1 = broadcast_attn_bias_dim_1;
   params.has_padding_mask_q = (mask_sequence_lengths_q != nullptr);
   params.has_padding_mask_kv = (mask_sequence_lengths_kv != nullptr);
   params.sliding_window = sliding_window;

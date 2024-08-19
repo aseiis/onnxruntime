@@ -296,7 +296,7 @@ Status FlashAttention(
   assert(data.qkv_format == AttentionQkvFormat::Q_K_V_BSNH ||
          data.qkv_format == AttentionQkvFormat::Q_K_V_BSNH_BNSH_BNSH);
   assert(nullptr == data.mask_index);
-  assert(nullptr == data.relative_position_bias);
+  assert(nullptr == data.attention_bias);
   assert(parameters.head_size == parameters.v_head_size);
 
   constexpr bool is_bf16 = false;
@@ -338,17 +338,19 @@ Status CudnnFlashAttention(
          data.qkv_format == AttentionQkvFormat::Q_K_V_BNSH);
   assert(parameters.mask_type == AttentionMaskType::MASK_NONE ||
          parameters.mask_type == AttentionMaskType::MASK_1D_KEY_SEQ_LEN);
-  assert(data.relative_position_bias == nullptr || parameters.relative_position_bias_dims.size() == 4);
   constexpr bool is_bf16 = false;
 
-  T* attention_bias = const_cast<T*>(data.relative_position_bias);
+  T* attention_bias = const_cast<T*>(data.attention_bias);
   int* mask_sequence_lengths_kv = const_cast<int*>(data.mask_index);
 
   cudnn_sdpa::run(
+      data.output,
       data.q,
       data.k,
       data.v,
-      data.output,
+      attention_bias,
+      nullptr,                                 // (optional) mask_sequence_lengths_q
+      mask_sequence_lengths_kv,                // (optional) mask_sequence_lengths_kv
       parameters.batch_size,
       parameters.num_heads,                    // num_heads_q,
       parameters.num_heads,                    // num_heads_kv,
@@ -359,10 +361,8 @@ Status CudnnFlashAttention(
       scale,                                   // scaling factor applied prior softmax
       parameters.is_unidirectional,            // causal
       is_bf16,                                 // True if bfloat16, otherwise float16
-      attention_bias,                          // (optional) relative position bias.
-      parameters.relative_position_bias_dims,  // Shape of attention_bias like [b or 1, h_q or 1, s_q, s_kv] or empty.
-      nullptr,                                 // (optional) mask_sequence_lengths_q
-      mask_sequence_lengths_kv,                // (optional) mask_sequence_lengths_kv
+      parameters.broadcast_attn_bias_dim_0,    // broadcast attention bias dimension 0 or not
+      parameters.broadcast_attn_bias_dim_1,    // broadcast attention bias dimension 1 or not
       0,                                       // sliding window length. 0 means no sliding window.
       data.qkv_format,
       cudnn_handle,
@@ -384,7 +384,7 @@ Status CudnnFlashAttention(
   ORT_UNUSED_PARAMETER(parameters);
   ORT_UNUSED_PARAMETER(data);
   ORT_UNUSED_PARAMETER(scale);
-  return ORT_MAKE_STATUS(ONNXRUNTIME, StatusCode::NOT_IMPLEMENTED, "flash attention does not support float tensor");
+  return ORT_MAKE_STATUS(ONNXRUNTIME, StatusCode::NOT_IMPLEMENTED, "cudnn flash attention does not support float tensor");
 }
 
 #if USE_MEMORY_EFFICIENT_ATTENTION
@@ -421,15 +421,18 @@ Status EfficientAttention(
     p.seqstart_k_ptr = nullptr;
   } else {
     p.seqlen_k_ptr = const_cast<int32_t*>(reinterpret_cast<const int32_t*>(data.mask_index));
-    p.seqstart_q_ptr = const_cast<int32_t*>(reinterpret_cast<const int32_t*>(data.mask_index + parameters.batch_size));
-    p.seqstart_k_ptr = const_cast<int32_t*>(reinterpret_cast<const int32_t*>(data.mask_index + 2 * parameters.batch_size + 1));
+    p.seqstart_q_ptr = p.seqlen_k_ptr + parameters.batch_size;
+    p.seqstart_k_ptr = p.seqlen_k_ptr + 2 * parameters.batch_size + 1;
   }
 
   p.query = data.q;
   p.key = data.k;
   p.value = data.v;
-  p.attn_bias = nullptr == data.relative_position_bias ? nullptr : data.relative_position_bias;
-  p.is_attn_bias_batched = !parameters.broadcast_res_pos_bias;
+
+  p.attn_bias = (nullptr == data.attention_bias) ? nullptr : data.attention_bias;
+  p.broadcast_attn_bias_dim_0 = parameters.broadcast_attn_bias_dim_0;
+  p.broadcast_attn_bias_dim_1 = parameters.broadcast_attn_bias_dim_1;
+
   p.output = data.output;
   p.is_kv_bsnh = data.qkv_format == AttentionQkvFormat::Q_K_V_BSNH;
   p.workspace = MemoryEfficientAttentionParams::need_workspace(parameters.v_head_size, sizeof(T) == sizeof(float))
@@ -488,6 +491,7 @@ Status UnfusedAttention(
   DUMP_TENSOR_D("q", data.q, batch_size, num_heads, sequence_length, qk_head_size);
   DUMP_TENSOR_D("k", data.k, batch_size, num_heads, total_sequence_length, qk_head_size);
   DUMP_TENSOR_D("v", data.v, batch_size, num_heads, total_sequence_length, v_head_size);
+  DUMP_TENSOR_D("mask_index", mask_index, mask_index_dims);
 
   CUBLAS_RETURN_IF_ERROR(cublasGemmStridedBatchedHelper(
       cublas, CUBLAS_OP_T, CUBLAS_OP_N,
@@ -504,7 +508,8 @@ Status UnfusedAttention(
                                                sequence_length, total_sequence_length);
   T* scratch2 = data.scratch + (bytes / element_size);
 
-  DUMP_TENSOR_D("mask_index", mask_index, mask_index_dims);
+  const bool broadcast_attn_bias_dim_0 = parameters.broadcast_attn_bias_dim_0;
+  const bool broadcast_attn_bias_dim_1 = parameters.broadcast_attn_bias_dim_1;
 
   // Apply softmax and store result R to scratch2: BxNxSxT
   if (use_raw_attention_mask) {  // 2d, 3d or 4d attention mask
@@ -519,7 +524,7 @@ Status UnfusedAttention(
     ORT_RETURN_IF_ERROR(
         ComputeSoftmaxWithRawMask<T>(
             ort_stream, total_sequence_length, sequence_length, batch_size, num_heads,
-            mask_index, nullptr, data.relative_position_bias, parameters.broadcast_res_pos_bias,
+            mask_index, nullptr, data.attention_bias, broadcast_attn_bias_dim_0, broadcast_attn_bias_dim_1,
             data.scratch, scratch2, parameters.is_unidirectional, scale, mask_dimension,
             parameters.max_sequence_length, use_persistent_softmax, persistent_softmax_workspace,
             parameters.mask_filter_value));
@@ -529,17 +534,17 @@ Status UnfusedAttention(
     const int* mask_start = (mask_index_dims[0] > batch_size) ? mask_index + batch_size : nullptr;
     ORT_RETURN_IF_ERROR(ComputeSoftmaxWithMask1D<T>(
         stream, total_sequence_length, sequence_length, batch_size, num_heads,
-        mask_index, mask_start, data.relative_position_bias, parameters.broadcast_res_pos_bias,
+        mask_index, mask_start, data.attention_bias, broadcast_attn_bias_dim_0, broadcast_attn_bias_dim_1,
         data.scratch, scratch2, parameters.is_unidirectional));
   } else {  // no mask
     ORT_RETURN_IF_ERROR(
         ComputeSoftmax<T>(
-            stream, total_sequence_length, sequence_length, batch_size, num_heads, data.relative_position_bias,
-            parameters.broadcast_res_pos_bias, data.scratch, scratch2, parameters.is_unidirectional));
+            stream, total_sequence_length, sequence_length, batch_size, num_heads,
+            data.attention_bias, broadcast_attn_bias_dim_0, broadcast_attn_bias_dim_1,
+            data.scratch, scratch2, parameters.is_unidirectional));
   }
 
   DUMP_TENSOR_D("Softmax", scratch2, batch_size, num_heads, sequence_length, total_sequence_length);
-  DUMP_TENSOR_D("V", data.v, batch_size, num_heads, sequence_length, v_head_size);
 
   // compute R*V (as V*R), and store in temp_output (space used by Q): BxNxSxH_v
   T* temp_output = data.q;

@@ -70,8 +70,8 @@ struct AttentionParameters {
   bool is_unidirectional;
   bool past_present_share_buffer;
   bool do_rotary;
-  bool broadcast_res_pos_bias;
-  gsl::span<const int64_t> relative_position_bias_dims;
+  bool broadcast_attn_bias_dim_0;
+  bool broadcast_attn_bias_dim_1;
   float mask_filter_value;
   float scale;
   bool use_tf32;
@@ -91,8 +91,8 @@ struct PackedAttentionParameters {
   int num_heads;
   float scale;
   int token_count;
-  bool has_relative_position_bias;
-  bool broadcast_res_pos_bias;
+  bool broadcast_attn_bias_dim_0;
+  bool broadcast_attn_bias_dim_1;
   bool use_tf32;
 };
 
@@ -186,6 +186,9 @@ constexpr const char* kEnableFusedCausalAttention = "ORT_ENABLE_FUSED_CAUSAL_ATT
 
 // Environment variable to enable or disable cuDNN flash attention.
 constexpr const char* kEnableCudnnFlashAttention = "ORT_ENABLE_CUDNN_FLASH_ATTENTION";
+
+// Environment variable to prefer BNSH format for cudnn sdpa.
+constexpr const char* kPreferBnshForCudnn = "ORT_PREFER_BNSH_FOR_CUDNN";
 
 // Environment variable to enable or disable TRT flash attention. This applies to both self and causal attention. Default is 0 (enabled).
 constexpr const char* kDisableTrtFlashAttention = "ORT_DISABLE_TRT_FLASH_ATTENTION";
