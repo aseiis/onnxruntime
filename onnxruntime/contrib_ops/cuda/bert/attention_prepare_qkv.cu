@@ -171,7 +171,7 @@ bool NoQkvWorkspace_MHA_Cross(AttentionData<T>& data) {
   // query, key and value are passed as Q, K and V for the following conditions.
   return (data.use_memory_efficient_attention ||
           data.use_flash_attention ||
-          data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) &&
+          (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) &&
          data.bias == nullptr;
 }
 
@@ -195,7 +195,7 @@ Status PrepareQkv_MHA_Cross(contrib::AttentionParameters& parameters,
 
   if (data.use_memory_efficient_attention ||
       data.use_flash_attention ||
-      data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) {
+      (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) {
     // Add bias for Q
     if (data.bias != nullptr) {
       LaunchAddBias(stream, max_threads_per_block, batch_size, sequence_length, num_heads, qk_head_size,
@@ -209,7 +209,7 @@ Status PrepareQkv_MHA_Cross(contrib::AttentionParameters& parameters,
     data.v = const_cast<T*>(data.value);
     data.qkv_format = AttentionQkvFormat::Q_K_V_BSNH_BNSH_BNSH;
   } else {  // unfused kernel
-    assert(data.IsUnfused());
+    assert(data.IsUnfused() || (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && data.prefer_bnsh_qkv_cudnn));
     if (data.bias == nullptr) {
       // Transpose query from BSNH to BNSH
       ORT_RETURN_IF_ERROR(LaunchTransQkv(stream, 1, sequence_length, batch_size, qk_head_size, num_heads,
@@ -237,7 +237,7 @@ bool NoQkvWorkspace_MHA_NoPast(AttentionData<T>& data) {
   // query, key and value are passed as Q, K and V for the following conditions.
   return (data.use_memory_efficient_attention ||
           data.use_flash_attention ||
-          data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) &&
+          (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) &&
          data.bias == nullptr;
 }
 
@@ -282,7 +282,7 @@ Status PrepareQkv_MHA_NoPast(contrib::AttentionParameters& parameters,
     data.qkv_format = AttentionQkvFormat::Q_KV_BSNH_BSN2H;
   } else if (data.use_memory_efficient_attention ||
              data.use_flash_attention ||
-             data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) {
+             (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) {
     if (data.bias != nullptr) {
       LaunchAddBias(stream, max_threads_per_block,
                     batch_size, sequence_length, kv_sequence_length,
@@ -310,7 +310,7 @@ Status PrepareQkv_MHA_NoPast(contrib::AttentionParameters& parameters,
 
     data.qkv_format = AttentionQkvFormat::QKV_BSN3H;
   } else {  // unfused kernel
-    assert(data.IsUnfused());
+    assert(data.IsUnfused() || (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && data.prefer_bnsh_qkv_cudnn));
     // Query (BxSxNxH) => Q (BxNxSxH)
     constexpr int format = 0;
     LaunchAddBiasTranspose<T>(
@@ -343,7 +343,7 @@ template <typename T>
 bool NoQkvWorkspace_MHA_WithPast_NoBias(AttentionData<T>& data) {
   if (data.use_memory_efficient_attention ||
       data.use_flash_attention ||
-      data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) {
+      (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) {
     // Q, K and V redirects to query, present_k and present_v, so we do not need extra workspace for QKV.
     return data.past_key == nullptr && data.present_key != nullptr;
   }
@@ -384,7 +384,7 @@ Status PrepareQkv_MHA_WithPast_NoBias(contrib::AttentionParameters& parameters,
 
   if (data.use_memory_efficient_attention ||
       data.use_flash_attention ||
-      data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) {
+      (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) {
     // Use oiginal Query (BSNH) since there is no bias.
     data.q = const_cast<T*>(data.query);
 
@@ -396,7 +396,7 @@ Status PrepareQkv_MHA_WithPast_NoBias(contrib::AttentionParameters& parameters,
                                        max_threads_per_block, false, data.value, data.v));
     data.qkv_format = AttentionQkvFormat::Q_K_V_BSNH_BNSH_BNSH;
   } else {  // unfused kernel
-    assert(data.IsUnfused());
+    assert(data.IsUnfused() || (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && data.prefer_bnsh_qkv_cudnn));
     ORT_RETURN_IF_ERROR(LaunchTransQkv(stream, 1, sequence_length, batch_size, qk_head_size, num_heads,
                                        max_threads_per_block, false, data.query, data.q));
     ORT_RETURN_IF_ERROR(LaunchTransQkv(stream, 1, kv_sequence_length, batch_size, qk_head_size, num_heads,
@@ -446,7 +446,7 @@ Status PrepareQkv_MHA_WithPast_Bias(contrib::AttentionParameters& parameters,
 
   if (data.use_memory_efficient_attention ||
       data.use_flash_attention ||
-      data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) {
+      (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) {
     // Query(BxSxNxH) + Bias_Q => Q (BxSxNxH)
     LaunchAddBias(stream, max_threads_per_block, batch_size, sequence_length, num_heads, qk_head_size,
                   data.bias, data.query, data.q);
@@ -466,7 +466,7 @@ Status PrepareQkv_MHA_WithPast_Bias(contrib::AttentionParameters& parameters,
 
     data.qkv_format = AttentionQkvFormat::Q_K_V_BSNH_BNSH_BNSH;
   } else {  // unfused kernel
-    assert(data.IsUnfused());
+    assert(data.IsUnfused() || (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && data.prefer_bnsh_qkv_cudnn));
 
     constexpr int format = 0;
     // Query (BxSxNxH) => Q (BxNxSxH)
@@ -522,7 +522,7 @@ Status PrepareQkv_MHA_PackedQKV(contrib::AttentionParameters& parameters,
   const int v_head_size = parameters.v_head_size;
 
   if (data.use_memory_efficient_attention || data.use_flash_attention ||
-      data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) {
+      (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) {
     // unpack qkv to BSNH.
     constexpr int format = 4;
     T* qkv_add_bias = nullptr;
@@ -551,7 +551,7 @@ Status PrepareQkv_MHA_PackedQKV(contrib::AttentionParameters& parameters,
 
     data.qkv_format = AttentionQkvFormat::QKV_BSN3H;
   } else {  // unfused kernel
-    assert(data.IsUnfused());
+    assert(data.IsUnfused() || (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && data.prefer_bnsh_qkv_cudnn));
     // unpack qkv to BNSH
     constexpr int format = 5;
     T* qkv_add_bias = nullptr;
@@ -595,7 +595,7 @@ Status PrepareQkv_MHA_PackedKV(contrib::AttentionParameters& parameters,
   const int v_head_size = parameters.v_head_size;
 
   if (data.use_memory_efficient_attention || data.use_flash_attention ||
-      data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention) {
+      (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && !data.prefer_bnsh_qkv_cudnn)) {
     // Note that there is no bias so we need not output query to q.
     data.q = const_cast<T*>(data.query);
     // Unpack kv to BSNH.
@@ -613,7 +613,7 @@ Status PrepareQkv_MHA_PackedKV(contrib::AttentionParameters& parameters,
     data.k = const_cast<T*>(data.key);
     data.v = nullptr;
   } else {  // unfused kernel
-    assert(data.IsUnfused());
+    assert(data.IsUnfused() || (data.kernel_type == AttentionKernelType::AttentionKernel_CudnnFlashAttention && data.prefer_bnsh_qkv_cudnn));
     // Transpose q from BSNH to BNSH. Note that there is no bias.
     ORT_RETURN_IF_ERROR(Transpose_BSNH_to_BNSH(batch_size, parameters.sequence_length, num_heads, qk_head_size,
                                                data.query, data.q, stream, max_threads_per_block));

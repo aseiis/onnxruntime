@@ -112,6 +112,7 @@ struct AttentionData {
   bool IsUnfused() const {
     return kernel_type == AttentionKernelType::AttentionKernel_Unfused;
   }
+  bool prefer_bnsh_qkv_cudnn = false;
 
   void PrintDebugInfo() const {
     std::cout << "flash=" << use_flash_attention

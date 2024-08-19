@@ -368,6 +368,7 @@ Status MultiHeadAttention<T>::ComputeInternal(OpKernelContext* context) const {
 
     data.PrintDebugInfo();
   }
+  data.prefer_bnsh_qkv_cudnn = kernel_options_->PreferBNSHForCudnn();
 
   cublasHandle_t cublas = GetCublasHandle(context);
   cudnnHandle_t cudnn = GetCudnnHandle(context);

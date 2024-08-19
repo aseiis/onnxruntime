@@ -187,6 +187,9 @@ constexpr const char* kEnableFusedCausalAttention = "ORT_ENABLE_FUSED_CAUSAL_ATT
 // Environment variable to enable or disable cuDNN flash attention.
 constexpr const char* kEnableCudnnFlashAttention = "ORT_ENABLE_CUDNN_FLASH_ATTENTION";
 
+// Environment variable to prefer BNSH format for cudnn sdpa.
+constexpr const char* kPreferBnshForCudnn = "ORT_PREFER_BNSH_FOR_CUDNN";
+
 // Environment variable to enable or disable TRT flash attention. This applies to both self and causal attention. Default is 0 (enabled).
 constexpr const char* kDisableTrtFlashAttention = "ORT_DISABLE_TRT_FLASH_ATTENTION";
 

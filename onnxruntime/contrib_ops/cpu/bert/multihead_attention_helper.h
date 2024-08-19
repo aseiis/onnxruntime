@@ -282,6 +282,10 @@ Status CheckInputs(const T* query,
   //     query            (Q/K/V)   : (B, S, N, 3, H)
   //     key                        : None
   //     value                      : None
+  //  QKV_BS3NH - packed qkv (S == L, D == D_v):
+  //     query            (Q/K/V)   : (B, S, D + D + D_v)
+  //     key                        : None
+  //     value                      : None
   //
   //  Other inputs:
   //     bias             (Q/K/V)   : None or (D + D + D_v)

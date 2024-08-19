@@ -28,7 +28,7 @@ void AttentionKernelOptions::Initialize(int value, bool use_build_flag, bool che
     use_flash_attention_ = !ParseEnvironmentVariableWithDefault<bool>(kDisableFlashAttention, false);
     use_efficient_attention_ = !ParseEnvironmentVariableWithDefault<bool>(kDisableMemoryEfficientAttention, false);
     use_trt_fused_attention_ = !ParseEnvironmentVariableWithDefault<bool>(kDisableFusedSelfAttention, false);
-    use_cudnn_flash_attention_ = ParseEnvironmentVariableWithDefault<bool>(kEnableCudnnFlashAttention, true);
+    use_cudnn_flash_attention_ = ParseEnvironmentVariableWithDefault<bool>(kEnableCudnnFlashAttention, false);
 
     use_unfused_ = true;
     use_trt_flash_attention_ = !ParseEnvironmentVariableWithDefault<bool>(kDisableTrtFlashAttention, false);
@@ -36,6 +36,7 @@ void AttentionKernelOptions::Initialize(int value, bool use_build_flag, bool che
     use_trt_causal_attention_ = ParseEnvironmentVariableWithDefault<bool>(kEnableFusedCausalAttention, false);
   }
 
+  perfer_bnsh_for_cudnn_ = ParseEnvironmentVariableWithDefault<bool>(kPreferBnshForCudnn, false);
   enable_kernel_debug_info_ = ParseEnvironmentVariableWithDefault<bool>(kEnableAttentionKernelDebugInfo, false);
 
   // When value is positive, we use 0 as default minimum sequence lengths to align with common usage in testing.
@@ -88,6 +89,7 @@ void AttentionKernelOptions::Print() const {
   sstream << " TRT_CROSS_ATTENTION=" << int(use_trt_cross_attention_);
   sstream << " TRT_CAUSAL_ATTENTION=" << int(use_trt_causal_attention_);
   sstream << " MATH=" << int(use_unfused_);
+  sstream << " PreferBNSHForCudnn=" << int(perfer_bnsh_for_cudnn_);
 
   if (!use_unfused_) {
     sstream << std::endl
@@ -128,45 +130,30 @@ void AttentionKernelDebugInfo::Print(const char* operator_name,
     sstream << " DataType=fp32";
   }
 
+  sstream << " SdpaKernel=";
   if (use_flash_attention.has_value() && use_flash_attention.value()) {
-    sstream << " FLASH_ATTENTION=" << int(use_flash_attention.value());
+    sstream << "FLASH_ATTENTION";
   }
-
-  if (use_efficient_attention.has_value() && use_efficient_attention.value()) {
-    sstream << " EFFICIENT_ATTENTION=" << int(use_efficient_attention.value());
+  else if (use_efficient_attention.has_value() && use_efficient_attention.value()) {
+    sstream << "EFFICIENT_ATTENTION";
   }
-
-  if (use_trt_fused_attention.has_value() && use_trt_fused_attention.value()) {
-    sstream << " TRT_FUSED_ATTENTION=" << int(use_trt_fused_attention.value());
+  else if (use_trt_fused_attention.has_value() && use_trt_fused_attention.value()) {
+    sstream << "TRT_FUSED_ATTENTION";
   }
-
-  if (use_cudnn_flash_attention.has_value() && use_cudnn_flash_attention.value()) {
-    sstream << " CUDNN_FLASH_ATTENTION=" << int(use_cudnn_flash_attention.value());
+  else if (use_cudnn_flash_attention.has_value() && use_cudnn_flash_attention.value()) {
+    sstream << "CUDNN_FLASH_ATTENTION";
   }
-
-  if (use_trt_flash_attention.has_value() && use_trt_flash_attention.value()) {
-    sstream << " TRT_FLASH_ATTENTION=" << int(use_trt_flash_attention.value());
+  else if (use_trt_flash_attention.has_value() && use_trt_flash_attention.value()) {
+    sstream << "TRT_FLASH_ATTENTION";
   }
-
-  if (use_trt_cross_attention.has_value() && use_trt_cross_attention.value()) {
-    sstream << " TRT_CROSS_ATTENTION=" << int(use_trt_cross_attention.value());
+  else if (use_trt_cross_attention.has_value() && use_trt_cross_attention.value()) {
+    sstream << "TRT_CROSS_ATTENTION";
   }
-
-  if (use_trt_causal_attention.has_value() && use_trt_causal_attention.value()) {
-    sstream << " TRT_CAUSAL_ATTENTION=" << int(use_trt_causal_attention.value());
+  else if (use_trt_causal_attention.has_value() && use_trt_causal_attention.value()) {
+    sstream << "TRT_CAUSAL_ATTENTION";
   }
-
-  bool use_fused = (use_flash_attention.has_value() && use_flash_attention.value()) ||
-                   (use_efficient_attention.has_value() && use_efficient_attention.value()) ||
-                   (use_trt_fused_attention.has_value() && use_trt_fused_attention.value()) ||
-                   (use_cudnn_flash_attention.has_value() && use_cudnn_flash_attention.value()) ||
-                   (use_trt_flash_attention.has_value() && use_trt_flash_attention.value()) ||
-                   (use_trt_cross_attention.has_value() && use_trt_cross_attention.value()) ||
-                   (use_trt_causal_attention.has_value() && use_trt_causal_attention.value());
-
-  // Fall back to unfused when no fused kernel is enabled.
-  if (!use_fused) {
-    sstream << " MATH=1";
+  else {
+    sstream << "MATH";
   }
 
   // Output text in Cyan color to make it easier to spot.

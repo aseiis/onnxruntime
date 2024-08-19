@@ -770,7 +770,7 @@ def multi_thread_test_cases(provider: str, comprehensive: bool):
 
 
 # Off by default so that we do not run too many tests in CI pipeline.
-comprehensive_mode = False
+comprehensive_mode = True
 
 
 class TestMultiHeadAttention(unittest.TestCase):
