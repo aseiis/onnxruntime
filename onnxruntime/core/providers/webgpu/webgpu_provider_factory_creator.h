@@ -12,8 +12,7 @@ namespace onnxruntime {
 struct SessionOptions;
 
 struct WebGpuProviderFactoryCreator {
-  static std::shared_ptr<IExecutionProviderFactory> Create(const ProviderOptions& provider_options,
-                                                           const SessionOptions* session_options);
+  static std::shared_ptr<IExecutionProviderFactory> Create(const SessionOptions* session_options);
 };
 
 }  // namespace onnxruntime

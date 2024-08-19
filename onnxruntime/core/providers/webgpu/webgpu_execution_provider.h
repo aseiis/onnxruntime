@@ -18,28 +18,18 @@ template <typename T>
 KernelCreateInfo BuildKernelCreateInfo();
 
 class WebGpuContext;
+enum class BufferCacheMode;
 }  // namespace webgpu
 
 struct WebGpuExecutionProviderInfo {
-  WebGpuExecutionProviderInfo(const ProviderOptions& po) {
-    auto it = po.find("preferred_layout");
-    if (it != po.end()) {
-      auto& value = it->second;
-      if (value == "NCHW") {
-        data_layout = DataLayout::NCHW;
-      } else if (value == "NHWC") {
-        data_layout = DataLayout::NHWC;
-      }
-    }
-  }
-
-  // WebGPU EP default preferred layout is NHWC
-  DataLayout data_layout = DataLayout::NHWC;
+  DataLayout data_layout;
+  bool enable_graph_capture;
+  webgpu::BufferCacheMode buffer_cache_mode;
 };
 
 class WebGpuExecutionProvider : public IExecutionProvider {
  public:
-  WebGpuExecutionProvider(const webgpu::WebGpuContext& context, const WebGpuExecutionProviderInfo& info, const SessionOptions* session_options);
+  WebGpuExecutionProvider(const int context_id, const webgpu::WebGpuContext& context, const WebGpuExecutionProviderInfo& info);
   ~WebGpuExecutionProvider() override;
 
   std::vector<std::unique_ptr<ComputeCapability>> GetCapability(
@@ -62,6 +52,9 @@ class WebGpuExecutionProvider : public IExecutionProvider {
   Status OnRunStart(const onnxruntime::RunOptions& run_options) override;
   Status OnRunEnd(bool sync_stream, const onnxruntime::RunOptions& run_options) override;
 
+  // WebGPU EP reuses the Device ID as the key to get the WebGpuContext instance.
+  int GetDeviceId() const override { return context_id_; }
+
   bool IsGraphCaptureEnabled() const override;
   bool IsGraphCaptured(int graph_annotation_id) const override;
   Status ReplayGraph(int graph_annotation_id) override;
@@ -70,6 +63,7 @@ class WebGpuExecutionProvider : public IExecutionProvider {
   bool IsGraphCaptureAllowed() const;
   void IncrementRegularRunCountBeforeGraphCapture();
   const webgpu::WebGpuContext& context_;
+  int context_id_;
   DataLayout preferred_data_layout_;
   bool enable_graph_capture_ = false;
   bool is_graph_captured_ = false;

@@ -718,16 +718,14 @@ std::unique_ptr<KernelRegistry> RegisterKernels() {
 
 using namespace webgpu;
 
-WebGpuExecutionProvider::WebGpuExecutionProvider(const WebGpuContext& context,
-                                                 const WebGpuExecutionProviderInfo& info,
-                                                 const SessionOptions* session_options)
+WebGpuExecutionProvider::WebGpuExecutionProvider(const int context_id,
+                                                 const WebGpuContext& context,
+                                                 const WebGpuExecutionProviderInfo& info)
     : IExecutionProvider{kWebGpuExecutionProvider, OrtDevice(OrtDevice::GPU, OrtDevice::MemType::DEFAULT, 0)},
+      context_id_{context_id},
       context_{context},
-      preferred_data_layout_{info.data_layout} {
-  if (session_options) {
-    enable_graph_capture_ = session_options->config_options.GetConfigOrDefault("enableGraphCapture", "false") == "true";
-    LOGS_DEFAULT(VERBOSE) << "Graph capture enable: " << enable_graph_capture_;
-  }
+      preferred_data_layout_{info.data_layout},
+      enable_graph_capture_{info.enable_graph_capture} {
 }
 
 std::vector<AllocatorPtr> WebGpuExecutionProvider::CreatePreferredAllocators() {

@@ -12,6 +12,7 @@
 
 #include <webgpu/webgpu_cpp.h>
 
+#include "core/providers/webgpu/webgpu_execution_provider.h"
 #include "core/providers/webgpu/buffer_manager.h"
 
 namespace onnxruntime {
@@ -20,7 +21,7 @@ class WebGpuContext;
 
 class WebGpuContextFactory {
  public:
-  static WebGpuContext& GetOrCreateContext(int32_t context_id = 0);
+  static WebGpuContext& ResolveContext(int context_id, WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device);
 
  private:
   WebGpuContextFactory() {}
@@ -32,7 +33,7 @@ class WebGpuContextFactory {
 // Class WebGpuContext includes all necessary resources for the context.
 class WebGpuContext final {
  public:
-  void Initialize();
+  void Initialize(const WebGpuExecutionProviderInfo& webgpu_ep_info);
 
   // non copyable
   WebGpuContext(const WebGpuContext&) = delete;
@@ -79,7 +80,7 @@ class WebGpuContext final {
   const IBufferManager& BufferManager() const { return *buffer_mgr_; }
 
  private:
-  WebGpuContext() {}
+  WebGpuContext(WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device) : instance_{instance}, adapter_{adapter}, device_{device} {}
 
   std::once_flag init_flag_;
 
