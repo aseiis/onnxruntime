@@ -108,7 +108,7 @@ Status WebGpuContext::Wait(wgpu::Future f) const {
 std::unordered_map<int32_t, std::unique_ptr<WebGpuContext>> WebGpuContextFactory::contexts_;
 std::mutex WebGpuContextFactory::mutex_;
 
-WebGpuContext& WebGpuContextFactory::ResolveContext(int context_id, WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device) {
+WebGpuContext& WebGpuContextFactory::CreateContext(int context_id, WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device) {
   if (context_id == 0) {
     // context ID is preserved for the default context. User cannot use context ID 0 as a custom context.
     ORT_ENFORCE(instance == nullptr && adapter == nullptr && device == nullptr,
@@ -129,6 +129,15 @@ WebGpuContext& WebGpuContextFactory::ResolveContext(int context_id, WGPUInstance
     ORT_ENFORCE(it->second->instance_.Get() == instance && it->second->adapter_.Get() == adapter && it->second->device_.Get() == device,
                 "WebGPU EP context ID ", context_id, " is already created with different WebGPU instance, adapter or device.");
   }
+  return *it->second;
+}
+
+WebGpuContext& WebGpuContextFactory::GetContext(int context_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  auto it = contexts_.find(context_id);
+  ORT_ENFORCE(it != contexts_.end(), "WebGPU EP context ID ", context_id, " is not found.");
+
   return *it->second;
 }
 

@@ -718,7 +718,7 @@ std::unique_ptr<KernelRegistry> RegisterKernels() {
 
 using namespace webgpu;
 
-WebGpuExecutionProvider::WebGpuExecutionProvider(const int context_id,
+WebGpuExecutionProvider::WebGpuExecutionProvider(int context_id,
                                                  const WebGpuContext& context,
                                                  const WebGpuExecutionProviderInfo& info)
     : IExecutionProvider{kWebGpuExecutionProvider, OrtDevice(OrtDevice::GPU, OrtDevice::MemType::DEFAULT, 0)},

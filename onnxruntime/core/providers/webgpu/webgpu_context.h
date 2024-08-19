@@ -21,7 +21,8 @@ class WebGpuContext;
 
 class WebGpuContextFactory {
  public:
-  static WebGpuContext& ResolveContext(int context_id, WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device);
+  static WebGpuContext& CreateContext(int context_id, WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device);
+  static WebGpuContext& GetContext(int context_id);
 
  private:
   WebGpuContextFactory() {}

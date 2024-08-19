@@ -12,7 +12,8 @@
 namespace onnxruntime {
 
 struct WebGpuProviderFactory : IExecutionProviderFactory {
-  WebGpuProviderFactory(const int context_id, const webgpu::WebGpuContext context, const WebGpuExecutionProviderInfo& webgpu_ep_info) : context_id_{context_id}, context_{context}, info_{webgpu_ep_info} {
+  WebGpuProviderFactory(const int context_id, const webgpu::WebGpuContext& context, const WebGpuExecutionProviderInfo& webgpu_ep_info)
+      : context_id_{context_id}, context_{context}, info_{webgpu_ep_info} {
   }
 
   std::unique_ptr<IExecutionProvider> CreateProvider() override {
@@ -72,28 +73,28 @@ std::shared_ptr<IExecutionProviderFactory> WebGpuProviderFactoryCreator::Create(
     context_id = static_cast<uint16_t>(std::stoi(context_id_str));
   }
 
-  WGPUInstance webgpu_instance;
+  WGPUInstance webgpu_instance = nullptr;
   std::string webgpu_instance_str;
   if (session_options->config_options.TryGetConfigEntry("webgpuInstance", webgpu_instance_str)) {
     static_assert(sizeof(WGPUInstance) == sizeof(unsigned long long), "WGPUInstance size mismatch");
     webgpu_instance = reinterpret_cast<WGPUInstance>(std::stoull(webgpu_instance_str));
   }
 
-  WGPUAdapter webgpu_adapter;
+  WGPUAdapter webgpu_adapter = nullptr;
   std::string webgpu_adapter_str;
   if (session_options->config_options.TryGetConfigEntry("webgpuAdapter", webgpu_adapter_str)) {
     static_assert(sizeof(WGPUAdapter) == sizeof(unsigned long long), "WGPUAdapter size mismatch");
     webgpu_adapter = reinterpret_cast<WGPUAdapter>(std::stoull(webgpu_adapter_str));
   }
 
-  WGPUDevice webgpu_device;
+  WGPUDevice webgpu_device = nullptr;
   std::string webgpu_device_str;
   if (session_options->config_options.TryGetConfigEntry("webgpuDevice", webgpu_device_str)) {
     static_assert(sizeof(WGPUDevice) == sizeof(unsigned long long), "WGPUDevice size mismatch");
     webgpu_device = reinterpret_cast<WGPUDevice>(std::stoull(webgpu_device_str));
   }
 
-  auto& context = webgpu::WebGpuContextFactory::ResolveContext(context_id, webgpu_instance, webgpu_adapter, webgpu_device);
+  auto& context = webgpu::WebGpuContextFactory::CreateContext(context_id, webgpu_instance, webgpu_adapter, webgpu_device);
   context.Initialize(webgpu_ep_info);
 
   return std::make_shared<WebGpuProviderFactory>(context_id, context, webgpu_ep_info);

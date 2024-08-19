@@ -7,15 +7,16 @@
 namespace onnxruntime {
 namespace webgpu {
 
-Status UnaryElementwise::Prepare(OpKernelContext* context, UnaryElementwisePreparation* p) const {
-  p->input_tensor = context->Input<Tensor>(0);
-  p->output_tensor = context->Output(0, p->input_tensor->Shape());
+Status UnaryElementwise::Prepare(ComputeContext& context, UnaryElementwisePreparation* p) const {
+  p->input_tensor = context.Input<Tensor>(0);
+  p->output_tensor = context.Output(0, p->input_tensor->Shape());
   return Status::OK();
 }
 
-Status UnaryElementwise::ComputeInternal(OpKernelContext* context) const {
+Status UnaryElementwise::ComputeInternal(ComputeContext& context) const {
   UnaryElementwisePreparation preparation;
   ORT_RETURN_IF_ERROR(Prepare(context, &preparation));
+
   return Status(common::ONNXRUNTIME, common::FAIL);
 }
 

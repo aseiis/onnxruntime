@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/providers/webgpu/webgpu_execution_provider.h"
+#include "core/providers/webgpu/compute_context.h"
 
 #include "core/framework/op_kernel.h"
 
@@ -20,7 +21,8 @@ class WebGpuKernel : public OpKernel {
   }
 
   Status Compute(OpKernelContext* p_op_kernel_context) const override {
-    auto s = ComputeInternal(p_op_kernel_context);
+    ComputeContext context{*p_op_kernel_context};
+    auto s = ComputeInternal(context);
     // use this to precisely locate the node where CUDA failure comes from
     //  if (cudaSuccess != cudaDeviceSynchronize())
     //    __debugbreak();
@@ -33,7 +35,7 @@ class WebGpuKernel : public OpKernel {
     return s;
   }
 
-  virtual Status ComputeInternal(OpKernelContext* p_op_kernel_context) const = 0;
+  virtual Status ComputeInternal(ComputeContext& context) const = 0;
 };
 
 }  // namespace webgpu

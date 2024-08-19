@@ -29,7 +29,7 @@ struct WebGpuExecutionProviderInfo {
 
 class WebGpuExecutionProvider : public IExecutionProvider {
  public:
-  WebGpuExecutionProvider(const int context_id, const webgpu::WebGpuContext& context, const WebGpuExecutionProviderInfo& info);
+  WebGpuExecutionProvider(int context_id, const webgpu::WebGpuContext& context, const WebGpuExecutionProviderInfo& info);
   ~WebGpuExecutionProvider() override;
 
   std::vector<std::unique_ptr<ComputeCapability>> GetCapability(
@@ -62,8 +62,8 @@ class WebGpuExecutionProvider : public IExecutionProvider {
  private:
   bool IsGraphCaptureAllowed() const;
   void IncrementRegularRunCountBeforeGraphCapture();
-  const webgpu::WebGpuContext& context_;
   int context_id_;
+  const webgpu::WebGpuContext& context_;
   DataLayout preferred_data_layout_;
   bool enable_graph_capture_ = false;
   bool is_graph_captured_ = false;
