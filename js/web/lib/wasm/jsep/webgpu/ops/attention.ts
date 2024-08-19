@@ -666,11 +666,27 @@ export const applyAttention = (
   parameters: AttentionParameters,
   attributes: AttentionAttrs,
 ) => {
-  const outputCount = context.outputCount;
-  const pastSequenceLength = parameters.kvNumHeads !== undefined || outputCount > 1 ? parameters.pastSequenceLength : 0;
-  const totalSequenceLength = pastSequenceLength + parameters.kvSequenceLength;
+  const pastSequenceLength =
+    parameters.kvNumHeads !== undefined || context.outputCount > 1 ? parameters.pastSequenceLength : 0;
 
-  const inputsK = parameters.kvNumHeads === undefined && outputCount > 1 && pastKey ? [q, k, pastKey] : [q, k];
+  // context.outputCount comes from KernelOp and is the number of outputs the op has.
+  // If they are not consumed we need to make sure the shaders don't generate the output
+  // since there is no buffer for it.
+  // We check by requesting the output and if not there we'll adjust context.outputCount
+  const presentKeyShape = [
+    parameters.batchSize,
+    parameters.kvNumHeads === undefined ? parameters.numHeads : parameters.kvNumHeads,
+    parameters.totalSequenceLength,
+    parameters.headSize,
+  ];
+  const output1 = context.output(1, presentKeyShape);
+  if (output1 === 0) {
+    context.outputCount = 1;
+  }
+  const outputCount = context.outputCount;
+  const outputPresent = outputCount > 1;
+
+  const inputsK = parameters.kvNumHeads === undefined && outputPresent && pastKey ? [q, k, pastKey] : [q, k];
   if (attentionBias) {
     inputsK.push(attentionBias);
   }
@@ -681,13 +697,13 @@ export const applyAttention = (
       context,
       q,
       k,
-      outputCount > 1 ? pastKey : undefined,
+      outputPresent ? pastKey : undefined,
       attentionBias,
       parameters,
       attributes,
       pastSequenceLength,
     ),
-    { inputs: inputsK, outputs: parameters.kvNumHeads === undefined && outputCount > 1 ? [-1, 1] : [-1] },
+    { inputs: inputsK, outputs: parameters.kvNumHeads === undefined && outputPresent ? [-1, 1] : [-1] },
   )[0];
 
   // Run Softmax
@@ -696,24 +712,24 @@ export const applyAttention = (
       context,
       probs,
       parameters.batchSize * parameters.numHeads * parameters.sequenceLength,
-      totalSequenceLength,
+      parameters.totalSequenceLength,
     ),
     { inputs: [probs], outputs: [] },
   );
 
   // Run AttrionScore
   const inputsV =
-    parameters.kvNumHeads === undefined && outputCount > 1 && pastValue ? [probs, v, pastValue] : [probs, v];
+    parameters.kvNumHeads === undefined && outputPresent && pastValue ? [probs, v, pastValue] : [probs, v];
   context.compute(
     createVxAttentionScoreProgramInfo(
       context,
       probs,
       v,
-      outputCount > 1 && pastValue ? pastValue : undefined,
+      outputPresent && pastValue ? pastValue : undefined,
       parameters,
       pastSequenceLength,
     ),
-    { inputs: inputsV, outputs: parameters.kvNumHeads === undefined && outputCount > 1 ? [0, 2] : [0] },
+    { inputs: inputsV, outputs: parameters.kvNumHeads === undefined && outputPresent ? [0, 2] : [0] },
   );
 };
 
