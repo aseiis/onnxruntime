@@ -405,7 +405,7 @@ static void RunMultiHeadAttentionKernel(
             {onnxruntime::contrib::attention::kDisableFusedCrossAttention, "1"},
             {onnxruntime::contrib::attention::kDisableMemoryEfficientAttention, "1"}}};
     RunMultiHeadAttentionTest(
-        query_data, key_data, value_data, kv_data, qkv_data, bias_data, rel_pos_bias_data,
+        query_data, key_data, value_data, kv_data, qkv_data, bias_data, attention_bias_data,
         past_key_data, past_value_data, present_key_data, present_value_data, key_padding_mask_data,
         mask_type, output_data, num_heads, batch_size, sequence_length, kv_sequence_length,
         hidden_size, v_hidden_size, is_static_kv, use_float16, disable_cpu, disable_cuda, disable_rocm, disable_dml);
