@@ -15,6 +15,7 @@
 #include "core/common/common.h"
 #include "core/providers/webgpu/webgpu_execution_provider.h"
 #include "core/providers/webgpu/buffer_manager.h"
+#include "core/providers/webgpu/program_manager.h"
 
 namespace onnxruntime {
 class Tensor;
@@ -46,11 +47,27 @@ class WebGpuContext final {
   const wgpu::Adapter& Adapter() const { return adapter_; }
   const wgpu::Device& Device() const { return device_; }
 
+  const wgpu::AdapterInfo& AdapterInfo() const { return adapter_info_; }
+  const wgpu::Limits& DeviceLimits() const { return device_limits_; }
+
   const wgpu::CommandEncoder& GetCommandEncoder() const {
     if (!current_command_encoder_) {
       current_command_encoder_ = device_.CreateCommandEncoder();
     }
     return current_command_encoder_;
+  }
+
+  const wgpu::ComputePassEncoder& GetComputePassEncoder() const {
+    if (!current_compute_pass_encoder_) {
+      auto& command_encoder = GetCommandEncoder();
+
+      wgpu::ComputePassDescriptor compute_pass_desc{};
+
+      // TODO: add support for GPU Query
+
+      current_compute_pass_encoder_ = command_encoder.BeginComputePass(&compute_pass_desc);
+    }
+    return current_compute_pass_encoder_;
   }
 
   void EndComputePass() const {
@@ -77,7 +94,7 @@ class WebGpuContext final {
 
   const IBufferManager& BufferManager() const { return *buffer_mgr_; }
 
-  Status Run(const ComputeContext& context, const ProgramInfo& program, std::initializer_list<const Tensor*> inputs, std::initializer_list<Tensor*> outputs) const;
+  Status Run(const ComputeContext& context, const ProgramInfo& program) const;
 
  private:
   WebGpuContext(WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device) : instance_{instance}, adapter_{adapter}, device_{device} {}
@@ -89,10 +106,14 @@ class WebGpuContext final {
   wgpu::Adapter adapter_;
   wgpu::Device device_;
 
-  std::unique_ptr<IBufferManager> buffer_mgr_;
+  wgpu::AdapterInfo adapter_info_;
+  wgpu::Limits device_limits_;
+
   mutable wgpu::CommandEncoder current_command_encoder_;
   mutable wgpu::ComputePassEncoder current_compute_pass_encoder_;
 
+  std::unique_ptr<IBufferManager> buffer_mgr_;
+  std::unique_ptr<ProgramManager> program_mgr_;
   friend class WebGpuContextFactory;
 };
 

@@ -7,7 +7,7 @@
 
 onnxruntime::webgpu::ProgramInfo::ProgramInfo(const std::string& name)
     : name_{name},
-      workgroup_dispatch_size_x_{1},
-      workgroup_dispatch_size_y_{1},
-      workgroup_dispatch_size_z_{1} {
+      workgroup_dispatch_size_x_{0},
+      workgroup_dispatch_size_y_{0},
+      workgroup_dispatch_size_z_{0} {
 }

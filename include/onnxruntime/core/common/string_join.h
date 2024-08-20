@@ -24,8 +24,8 @@ inline void StringJoinImpl(const Separator& separator, std::ostringstream& ss, c
 
 template <typename Separator, typename T, typename... Args>
 inline void StringJoinImpl(const Separator& separator, std::ostringstream& ss, const T& t, const Args&... args) noexcept {
-    StringJoinImpl(separator, ss, t);
-    StringJoinImpl(separator, ss, args...);
+  StringJoinImpl(separator, ss, t);
+  StringJoinImpl(separator, ss, args...);
 }
 
 template <typename Separator, typename... Args>

@@ -2,14 +2,50 @@
 // Licensed under the MIT License.
 
 #include <memory>
+#include <cmath>
 
 #include "core/common/common.h"
+
 #include "core/providers/webgpu/webgpu_context.h"
 #include "core/providers/webgpu/buffer_manager.h"
 #include "core/providers/webgpu/webgpu_execution_provider.h"
+#include "core/providers/webgpu/program_info.h"
+#include "core/providers/webgpu/program_manager.h"
 
 namespace onnxruntime {
 namespace webgpu {
+
+std::string CalculateProgramInfoUniqueKey(const ProgramInfo& program,
+                                          bool is_1d_dispatch) {
+  std::ostringstream ss;
+  ss.imbue(std::locale::classic());
+
+  // final key format:
+  // <KEY>=<PROGRAM_NAME>[<PROGRAM_CUSTOM_CACHE_HINT>]:is1DimensionDispatch:<INPUTS_INFO_0>|<INPUTS_INFO_1>|...
+  //
+  // <PROGRAM_CUSTOM_CACHE_HINT>=<HINT_0>|<HINT_1>|...
+  // <INPUTS_INFO_i>=<TENSOR_ELEMENT_TYPE_OR_EMPTY>;<TENSOR_SHAPE_OR_RANK_OR_EMPTY>
+  ss << program.Name() << "[" << program.CacheHint() << "]:" << is_1d_dispatch << ":";
+  bool first_input = true;
+  for (const auto& input : program.Inputs()) {
+    if (first_input) {
+      first_input = false;
+    } else {
+      ss << "|";
+    }
+    if ((input.dependency & ProgramInputTensorDependency::Type) == ProgramInputTensorDependency::Type) {
+      ss << input.tensor->GetElementType();
+    }
+    ss << ";";
+    if ((input.dependency & ProgramInputTensorDependency::Rank) == ProgramInputTensorDependency::Rank) {
+      ss << input.tensor->Shape().NumDimensions();
+    } else if ((input.dependency & ProgramInputTensorDependency::Shape) == ProgramInputTensorDependency::Shape) {
+      ss << input.tensor->Shape().ToString();
+    }
+  }
+
+  return ss.str();
+}
 
 std::vector<wgpu::FeatureName> GetAvailableRequiredFeatures(const wgpu::Adapter& adapter) {
   std::vector<wgpu::FeatureName> required_features;
@@ -92,8 +128,18 @@ void WebGpuContext::Initialize(const WebGpuExecutionProviderInfo& webgpu_ep_info
       ORT_ENFORCE(device_ != nullptr, "Failed to get a WebGPU device.");
     }
 
+    // cache adapter info
+    ORT_ENFORCE(Adapter().GetInfo(&adapter_info_));
+    // cache device limits
+    wgpu::SupportedLimits device_supported_limits;
+    ORT_ENFORCE(Device().GetLimits(&device_supported_limits));
+    device_limits_ = device_supported_limits.limits;
+
     // create buffer manager
     buffer_mgr_ = BufferManagerFactory::Create(*this, buffer_cache_mode);
+
+    // create program manager
+    program_mgr_ = std::make_unique<ProgramManager>(Device(), DeviceLimits());
   });
 }
 
@@ -105,11 +151,41 @@ Status WebGpuContext::Wait(wgpu::Future f) const {
   return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Failed to wait for the operation:", uint32_t(status));
 }
 
-Status WebGpuContext::Run(const ComputeContext& /* context */,
-                          const ProgramInfo& /* program */,
-                          std::initializer_list<const Tensor*> /* inputs */,
-                          std::initializer_list<Tensor*> /* outputs */) const {
-  return Status();
+Status WebGpuContext::Run(const ComputeContext& /* context */, const ProgramInfo& program) const {
+  const auto& inputs = program.Inputs();
+  const auto& outputs = program.Outputs();
+
+#ifndef NDEBUG
+  ORT_ENFORCE(std::all_of(inputs.begin(), inputs.end(), [](const ProgramInput& input) {
+                const auto* tensor = input.tensor;
+                return tensor != nullptr &&
+                       tensor->Location().mem_type == OrtMemType::OrtMemTypeDefault &&
+                       tensor->Location().device.Type() == OrtDevice::GPU &&
+                       tensor->Location().name == WEBGPU_BUFFER;
+              }),
+              "All inputs must be tensors on WebGPU buffers.");
+
+  ORT_ENFORCE(std::all_of(outputs.begin(), outputs.end(), [](Tensor* tensor) {
+                return tensor != nullptr &&
+                       tensor->Location().mem_type == OrtMemType::OrtMemTypeDefault &&
+                       tensor->Location().device.Type() == OrtDevice::GPU &&
+                       tensor->Location().name == WEBGPU_BUFFER;
+              }),
+              "All outputs must be tensors on WebGPU buffers.");
+#endif
+
+  if (outputs.size() == 0) {
+    return Status::OK();
+  }
+
+  ORT_RETURN_IF(program.Inputs().size() != inputs.size(), "The number of inputs does not match the program.");
+
+  const auto [x, y, z] = program_mgr_->NormalizeDispatchGroupSize(program.WorkgroupDispatchSize());
+  bool is_1d_dispatch = (y == 1 && z == 1);
+
+  auto key = CalculateProgramInfoUniqueKey(program, is_1d_dispatch);
+
+  return Status::OK();
 }
 
 std::unordered_map<int32_t, std::unique_ptr<WebGpuContext>> WebGpuContextFactory::contexts_;

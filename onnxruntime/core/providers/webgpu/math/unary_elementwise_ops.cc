@@ -7,18 +7,19 @@
 namespace onnxruntime {
 namespace webgpu {
 
-#define WEBGPU_ELEMENTWISE_IMPL(OP_TYPE, ...)                              \
-  class OP_TYPE final : public WebGpuKernel {                              \
-   public:                                                                 \
-    OP_TYPE(const OpKernelInfo& info) : WebGpuKernel{info} {}              \
-                                                                           \
-   protected:                                                              \
-    Status ComputeInternal(ComputeContext& context) const override {       \
-      const auto* input_tensor = context.Input(0);                         \
-      auto* output_tensor = context.Output(0, input_tensor->Shape());      \
-      UnaryElementwiseProgramInfo program{#OP_TYPE, __VA_ARGS__};          \
-      return context.RunProgram(program, {input_tensor}, {output_tensor}); \
-    }                                                                      \
+#define WEBGPU_ELEMENTWISE_IMPL(OP_TYPE, ...)                                                        \
+  class OP_TYPE final : public WebGpuKernel {                                                        \
+   public:                                                                                           \
+    OP_TYPE(const OpKernelInfo& info) : WebGpuKernel{info} {}                                        \
+                                                                                                     \
+   protected:                                                                                        \
+    Status ComputeInternal(ComputeContext& context) const override {                                 \
+      const auto* input_tensor = context.Input(0);                                                   \
+      auto* output_tensor = context.Output(0, input_tensor->Shape());                                \
+      UnaryElementwiseProgramInfo program{#OP_TYPE, __VA_ARGS__};                                    \
+      program.Inputs({{input_tensor, ProgramInputTensorDependency::Type}}).Outputs({output_tensor}); \
+      return context.RunProgram(program);                                                            \
+    }                                                                                                \
   };
 
 #define WEBGPU_ELEMENTWISE_KERNEL(OP_TYPE, VERSION, KERNEL_CLASS, TYPE) \

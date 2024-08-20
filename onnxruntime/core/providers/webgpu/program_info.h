@@ -53,7 +53,7 @@ struct ProgramUniformVariable {
   gsl::span<uint8_t> data;
 };
 
-enum class ProgramInputTensorDependency {
+enum class ProgramInputTensorDependency : int {
   None = 0,
   Type = 1,
   Rank = 2,
@@ -61,6 +61,19 @@ enum class ProgramInputTensorDependency {
   TypeAndRank = Type | Rank,
   TypeAndShape = Type | Shape,
 };
+
+inline ProgramInputTensorDependency operator|(ProgramInputTensorDependency a, ProgramInputTensorDependency b) {
+  return (ProgramInputTensorDependency)((int&)a | (int&)b);
+}
+inline ProgramInputTensorDependency operator&(ProgramInputTensorDependency a, ProgramInputTensorDependency b) {
+  return (ProgramInputTensorDependency)((int&)a & (int&)b);
+}
+inline ProgramInputTensorDependency& operator|=(ProgramInputTensorDependency& a, ProgramInputTensorDependency b) {
+  return (ProgramInputTensorDependency&)((int&)a |= (int&)b);
+}
+inline ProgramInputTensorDependency& operator&=(ProgramInputTensorDependency& a, ProgramInputTensorDependency b) {
+  return (ProgramInputTensorDependency&)((int&)a &= (int&)b);
+}
 
 struct ProgramInput {
   const Tensor* tensor;
@@ -83,6 +96,8 @@ class ProgramInfo {
   ProgramInfo& Inputs(std::initializer_list<ProgramInput> inputs);
   ProgramInfo& Outputs(std::initializer_list<Tensor*> outputs);
 
+  ProgramInfo& WorkgroupDispatchSize(uint32_t x);
+  ProgramInfo& WorkgroupDispatchSize(uint32_t x, uint32_t y);
   ProgramInfo& WorkgroupDispatchSize(uint32_t x, uint32_t y, uint32_t z);
 
   ProgramInfo& UniformVariables(std::initializer_list<ProgramUniformVariable> variables);
@@ -93,11 +108,23 @@ class ProgramInfo {
 
   virtual std::string GenerateShaderCode(ShaderHelper& sh) const = 0;
 
+  //
+  // Properties Getters
+  //
+
+  const std::string& Name() const { return name_; }
+  const std::string& CacheHint() const { return cache_hint_; }
+  const std::vector<ProgramInput>& Inputs() const { return inputs_; }
+  const std::vector<Tensor*>& Outputs() const { return outputs_; }
+  std::tuple<uint32_t, uint32_t, uint32_t> WorkgroupDispatchSize() const {
+    return std::make_tuple(workgroup_dispatch_size_x_, workgroup_dispatch_size_y_, workgroup_dispatch_size_z_);
+  }
+  const std::vector<ProgramUniformVariable>& UniformVariables() const { return variables_; }
+
  private:
   std::string name_;
   std::string cache_hint_;
-  std::vector<ProgramInputTensorDependency> cache_input_dependencies_;
-  std::vector<const Tensor*> inputs_;
+  std::vector<ProgramInput> inputs_;
   std::vector<Tensor*> outputs_;
 
   uint32_t workgroup_dispatch_size_x_;

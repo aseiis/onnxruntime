@@ -34,8 +34,8 @@ class ComputeContext {
   // Get various information from the context.
   //
 
-  wgpu::AdapterInfo AdapterInfo() const;
-  wgpu::Limits DeviceLimits() const;
+  const wgpu::AdapterInfo& AdapterInfo() const;
+  const wgpu::Limits& DeviceLimits() const;
 
   //
   // Get input tensor.
@@ -86,7 +86,7 @@ class ComputeContext {
   //
   // Run a compute shader program.
   //
-  Status RunProgram(const ProgramInfo& program, std::initializer_list<const Tensor*> inputs, std::initializer_list<Tensor*> outputs);
+  Status RunProgram(const ProgramInfo& program);
 
  protected:
   const WebGpuContext& webgpu_context_;
