@@ -7,18 +7,19 @@
 namespace onnxruntime {
 namespace webgpu {
 
-Status UnaryElementwise::Prepare(ComputeContext& context, UnaryElementwisePreparation* p) const {
-  p->input_tensor = context.Input<Tensor>(0);
-  p->output_tensor = context.Output(0, p->input_tensor->Shape());
-  return Status::OK();
-}
-
-Status UnaryElementwise::ComputeInternal(ComputeContext& context) const {
-  UnaryElementwisePreparation preparation;
-  ORT_RETURN_IF_ERROR(Prepare(context, &preparation));
-
-  return Status(common::ONNXRUNTIME, common::FAIL);
-}
+#define WEBGPU_ELEMENTWISE_IMPL(OP_TYPE, ...)                              \
+  class OP_TYPE final : public WebGpuKernel {                              \
+   public:                                                                 \
+    OP_TYPE(const OpKernelInfo& info) : WebGpuKernel{info} {}              \
+                                                                           \
+   protected:                                                              \
+    Status ComputeInternal(ComputeContext& context) const override {       \
+      const auto* input_tensor = context.Input(0);                         \
+      auto* output_tensor = context.Output(0, input_tensor->Shape());      \
+      UnaryElementwiseProgramInfo program{#OP_TYPE, __VA_ARGS__};          \
+      return context.RunProgram(program, {input_tensor}, {output_tensor}); \
+    }                                                                      \
+  };
 
 #define WEBGPU_ELEMENTWISE_KERNEL(OP_TYPE, VERSION, KERNEL_CLASS, TYPE) \
   ONNX_OPERATOR_KERNEL_EX(                                              \
@@ -32,6 +33,7 @@ Status UnaryElementwise::ComputeInternal(ComputeContext& context) const {
       KernelDefBuilder().TypeConstraint("T", TYPE),                                                \
       KERNEL_CLASS);
 
+WEBGPU_ELEMENTWISE_IMPL(Abs, "abs(x)")
 WEBGPU_ELEMENTWISE_VERSIONED_KERNEL(Abs, 6, 12, Abs, WebGpuSupportedFloatTypes())
 WEBGPU_ELEMENTWISE_KERNEL(Abs, 13, Abs, WebGpuSupportedFloatTypes())
 

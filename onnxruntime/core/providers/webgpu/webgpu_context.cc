@@ -105,6 +105,13 @@ Status WebGpuContext::Wait(wgpu::Future f) const {
   return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Failed to wait for the operation:", uint32_t(status));
 }
 
+Status WebGpuContext::Run(const ComputeContext& /* context */,
+                          const ProgramInfo& /* program */,
+                          std::initializer_list<const Tensor*> /* inputs */,
+                          std::initializer_list<Tensor*> /* outputs */) const {
+  return Status();
+}
+
 std::unordered_map<int32_t, std::unique_ptr<WebGpuContext>> WebGpuContextFactory::contexts_;
 std::mutex WebGpuContextFactory::mutex_;
 

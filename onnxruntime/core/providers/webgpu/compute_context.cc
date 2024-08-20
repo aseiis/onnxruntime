@@ -33,5 +33,26 @@ int ComputeContext::OutputCount() const {
   return kernel_context_.OutputCount();
 }
 
+Status ComputeContext::RunProgram(const ProgramInfo& program, std::initializer_list<const Tensor*> inputs, std::initializer_list<Tensor*> outputs) {
+#ifndef NDEBUG
+  ORT_ENFORCE(std::all_of(inputs.begin(), inputs.end(), [](const Tensor* tensor) {
+                return tensor != nullptr &&
+                       tensor->Location().mem_type == OrtMemType::OrtMemTypeDefault &&
+                       tensor->Location().device.Type() == OrtDevice::GPU &&
+                       tensor->Location().name == WEBGPU_BUFFER;
+              }),
+              "All inputs must be tensors on WebGPU buffers.");
+
+  ORT_ENFORCE(std::all_of(outputs.begin(), outputs.end(), [](Tensor* tensor) {
+                return tensor != nullptr &&
+                       tensor->Location().mem_type == OrtMemType::OrtMemTypeDefault &&
+                       tensor->Location().device.Type() == OrtDevice::GPU &&
+                       tensor->Location().name == WEBGPU_BUFFER;
+              }),
+              "All outputs must be tensors on WebGPU buffers.");
+#endif
+  return webgpu_context_.Run(*this, program, std::forward<std::initializer_list<const Tensor*>>(inputs), std::forward<std::initializer_list<Tensor*>>(outputs));
+}
+
 }  // namespace webgpu
 }  // namespace onnxruntime

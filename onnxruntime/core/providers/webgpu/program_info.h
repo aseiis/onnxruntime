@@ -6,6 +6,10 @@
 #include <string>
 #include <vector>
 
+#include <gsl/gsl>
+
+#include "core/common/string_join.h"
+
 namespace onnxruntime {
 class Tensor;
 
@@ -73,8 +77,8 @@ class ProgramInfo {
   //
 
   // set the cache hint for the program
-  template <typename... T>
-  ProgramInfo& CacheHint(T&&... args);
+  template <typename... CacheHintArgs>
+  ProgramInfo& CacheHint(CacheHintArgs&&... args);
 
   ProgramInfo& Inputs(std::initializer_list<ProgramInput> inputs);
   ProgramInfo& Outputs(std::initializer_list<Tensor*> outputs);
@@ -102,6 +106,15 @@ class ProgramInfo {
 
   std::vector<ProgramUniformVariable> variables_;
 };
+
+namespace {
+
+}
+
+template <typename... CacheHintArgs>
+inline ProgramInfo& ProgramInfo::CacheHint(CacheHintArgs&&... args) {
+  cache_hint_ = StringJoin("|", std::forward<CacheHintArgs>(args)...);
+}
 
 }  // namespace webgpu
 }  // namespace onnxruntime

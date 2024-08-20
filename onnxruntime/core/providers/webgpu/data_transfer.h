@@ -14,7 +14,7 @@ class WebGpuContext;
 class DataTransfer : public IDataTransfer {
  public:
   DataTransfer(const WebGpuContext& context) : context_{context} {};
-  ~DataTransfer() {};
+  ~DataTransfer(){};
 
   bool CanCopy(const OrtDevice& src_device, const OrtDevice& dst_device) const override;
 

@@ -4,26 +4,24 @@
 #pragma once
 
 #include "core/providers/webgpu/webgpu_kernel.h"
+#include "core/providers/webgpu/program_info.h"
 
 namespace onnxruntime {
 namespace webgpu {
 
-struct UnaryElementwisePreparation {
-  const Tensor* input_tensor = nullptr;
-  Tensor* output_tensor = nullptr;
-};
-
-class UnaryElementwise : public WebGpuKernel {
- protected:
-  UnaryElementwise(const OpKernelInfo& info) : WebGpuKernel(info) {}
-  Status ComputeInternal(ComputeContext&) const override;
-  Status Prepare(ComputeContext& context, UnaryElementwisePreparation* p) const;
-};
-
-class Abs final : public UnaryElementwise {
+class UnaryElementwiseProgramInfo final : public ProgramInfo {
  public:
-  Abs(const OpKernelInfo& info) : UnaryElementwise(info) {}
-  // Status ComputeInternal(OpKernelContext* context) const override;
+  UnaryElementwiseProgramInfo(const std::string& kernel_name, const std::string& expression, const std::string& additional_impl = "")
+      : ProgramInfo{kernel_name}, expression_{expression}, additional_impl_{additional_impl} {
+  }
+
+  std::string GenerateShaderCode(ShaderHelper& /*sh*/) const override {
+    return "";
+  }
+
+ private:
+  std::string expression_;
+  std::string additional_impl_;
 };
 
 }  // namespace webgpu

@@ -86,7 +86,7 @@ class ComputeContext {
   //
   // Run a compute shader program.
   //
-  void RunProgram(ProgramInfo program);
+  Status RunProgram(const ProgramInfo& program, std::initializer_list<const Tensor*> inputs, std::initializer_list<Tensor*> outputs);
 
  protected:
   const WebGpuContext& webgpu_context_;

@@ -12,12 +12,17 @@
 
 #include <webgpu/webgpu_cpp.h>
 
+#include "core/common/common.h"
 #include "core/providers/webgpu/webgpu_execution_provider.h"
 #include "core/providers/webgpu/buffer_manager.h"
 
 namespace onnxruntime {
+class Tensor;
+
 namespace webgpu {
 class WebGpuContext;
+class ComputeContext;
+class ProgramInfo;
 
 class WebGpuContextFactory {
  public:
@@ -35,14 +40,6 @@ class WebGpuContextFactory {
 class WebGpuContext final {
  public:
   void Initialize(const WebGpuExecutionProviderInfo& webgpu_ep_info);
-
-  // non copyable
-  WebGpuContext(const WebGpuContext&) = delete;
-  WebGpuContext& operator=(const WebGpuContext&) = delete;
-
-  // non movable
-  WebGpuContext(WebGpuContext&&) = delete;
-  WebGpuContext& operator=(WebGpuContext&&) = delete;
 
   Status Wait(wgpu::Future f) const;
 
@@ -80,8 +77,11 @@ class WebGpuContext final {
 
   const IBufferManager& BufferManager() const { return *buffer_mgr_; }
 
+  Status Run(const ComputeContext& context, const ProgramInfo& program, std::initializer_list<const Tensor*> inputs, std::initializer_list<Tensor*> outputs) const;
+
  private:
   WebGpuContext(WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device) : instance_{instance}, adapter_{adapter}, device_{device} {}
+  ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(WebGpuContext);
 
   std::once_flag init_flag_;
 
