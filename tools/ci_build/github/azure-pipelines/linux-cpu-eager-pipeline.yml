@@ -91,7 +91,7 @@ jobs:
               set -ex; \
               export PYTHONPATH=/build/Release; \
               python3 -m pip install /build/Release/dist/*.whl; \
-              pwd; \
+              echo $(pwd); \
               python3 /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_dort.py; \
               cd /build/Release; python3 /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_dort_custom_ops.py"
       workingDirectory: $(Build.SourcesDirectory)
