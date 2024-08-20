@@ -92,6 +92,8 @@ jobs:
               export PYTHONPATH=/build/Release; \
               python3 -m pip install /build/Release/dist/*.whl; \
               echo $(pwd); \
+              pip list; \
+              python -c 'import onnxruntime; print(onnxruntime.training.ortmodule._utils._ortvalues_to_torch_tensor)'; \
               python3 /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_dort.py; \
               cd /build/Release; python3 /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_dort_custom_ops.py"
       workingDirectory: $(Build.SourcesDirectory)
